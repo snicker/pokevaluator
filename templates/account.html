@@ -50,7 +50,7 @@
 		return cell
 	};
 	pokemonrow = function(pokemon) {
-		row = $('<tr id="' + pokemon.id + '"></tr>')
+		row = $('<tr id="' + pokemon['id'] + '"></tr>')
 		row.append($('<td><input type="checkbox" id="selected_pokemon" name="selected_pokemon" value="' + pokemon['id'] + '"></td>'))
 		$.each(columns,function(k,column){
 			row.append(pokemoncell(pokemon,column))
@@ -63,6 +63,8 @@
 	updatepokemonrow = function(pokemon) {
 		existingrow = $('.poketable tr#' + pokemon.id);
 		if(existingrow.length > 0) {
+			console.log("updating a pokemon row")
+			console.log(pokemon)
 			existingrow.replaceWith(pokemonrow(pokemon))
 		}
 	};
@@ -75,9 +77,14 @@
 		}
 	};
 	refreshtablesaw = function() {
+		$('#poketable').removeData(); // remove any data tablesaw has associated with the table
+		// $('#poketable').tablesaw(); //call the plugin again
+		$('.tablesaw-bar').remove();
 		$( document ).trigger( "enhance.tablesaw" );
 	}
 	updatepokemontable = function(party) {
+		console.log("updating the pokemon table")
+		console.log(party)
 		$.each(party,function(k,pokemon){
 			updateoradpokemonrow(pokemon)
 		});
@@ -94,7 +101,22 @@
 			});
 	};
 	togglefavoritepokemon = function(pokemonid) {
-		
+		console.log("favoriting " + pokemonid)
+		$.ajax({
+			url: "{{ url_for('api_toggle_favorite',accountname=accountname) }}",
+			type: "POST",
+			processData: false,
+			contentType: 'application/json',
+			data: JSON.stringify({"pokemon_ids": [pokemonid]}),
+			success: function(data) {
+				if(data.success) {
+					updatepokemontable(data.partydelta);
+				}
+			}
+		});
+	}
+	get_selected_pokemon = function() {
+		return $('input#selected_pokemon:checked').map(function() { return $(this).val(); })
 	}
 	$(function(){
 		refreshwholeparty();
@@ -112,6 +134,17 @@
 				return bchecked && !achecked ? 1 : -1;
 			};
 		});
+		$('#go_action_on_selected').click(function(e) {
+			action = $('#action_on_selected').find('option:selected').val();
+			actions = {'favorite': {'call': togglefavoritepokemon, 'delay': 300}};
+			if(actions[action]) {
+				pokemon_ids = get_selected_pokemon()
+				for(i=0;i<pokemon_ids.length; i++){
+					setTimeout(actions[action]['call'], i*actions[action]['delay'],pokemon_ids[i])
+				}
+			}
+			e.handled = true;
+		});
 	});
 	</script>
     </head>
@@ -121,14 +154,14 @@
 	<div class="tablecontainer">
 	<input type="submit" name="release" formaction="release" value="release selected">
 	<input type="submit" name="release" formaction="rspbke2p" value="release shitty pokemon but keep enough to powerlevel"  onclick="return confirm('are you sure you wanna release shitty pokemon??');">
-	<select name="action_on_selected">
+	<select id="action_on_selected" name="action_on_selected">
 		<option value="None" selected="selected">---</option>
 		<option value="evolve">Evolve</option>
 		<option value="favorite">Toggle favorite</option>
 		<option value="release">Release</option>
 	</select>
 	<input type="submit" id="go_action_on_selected" name="go_action_on_selected" formaction="batch_action_on_selected" value="go!">
-	<table class="poketable tablesaw-row-border tablesaw-row-zebra" data-tablesaw-sortable data-tablesaw-mode="columntoggle">
+	<table id="poketable" class="poketable tablesaw-row-border tablesaw-row-zebra" data-tablesaw-sortable data-tablesaw-mode="columntoggle">
 	<thead id="stickyheader" class="top">
 	<tr>
 		<th data-tablesaw-sortable-col id="sortable-checked">X</th>

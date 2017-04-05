@@ -581,7 +581,7 @@ def pokemon_formatted(pokemon):
     p['battles_defended'] = pokemon.battles_defended
     p['powerups'] = pokemon.get('num_upgrades',0)
     p['favorite'] = pokemon.get('favorite')
-    p['id'] = pokemon.id
+    p['id'] = str(pokemon.id)
     p['level'] = get_level_for_pokemon(p)
     p['cpl'] = p['cp'] / p['level'] if p['level'] > 0 else 0
     p['special_types'] = pokemon.special_types
