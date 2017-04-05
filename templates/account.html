@@ -42,6 +42,10 @@
 			cell.append(specials);
 			return cell;
 		}
+		if(column.key == 'max_cp_at_max_evolution') {
+			cell.append($('<span>' + pokemon[column.key][0] + ' (' + ('0000'+pokemon[column.key][1]).slice(-3) + ')</span>'))
+			return cell
+		}
 		cell.append($('<span>' + pokemon[column.key] + '</span>'))
 		return cell
 	};
@@ -57,23 +61,57 @@
 		$('.poketable tbody').append(pokemonrow(pokemon))
 	};
 	updatepokemonrow = function(pokemon) {
-		
-	}
+		existingrow = $('.poketable tr#' + pokemon.id);
+		if(existingrow.length > 0) {
+			existingrow.replaceWith(pokemonrow(pokemon))
+		}
+	};
+	updateoradpokemonrow = function(pokemon) {
+		existingrow = $('.poketable tr#' + pokemon.id);
+		if(existingrow.length > 0) {
+			updatepokemonrow(pokemon);
+		} else {
+			addpokemonrow(pokemon);
+		}
+	};
 	refreshtablesaw = function() {
 		$( document ).trigger( "enhance.tablesaw" );
 	}
-	$(function(){
+	updatepokemontable = function(party) {
+		$.each(party,function(k,pokemon){
+			updateoradpokemonrow(pokemon)
+		});
+		refreshtablesaw();
+	}
+	refreshwholeparty = function() {
 		$.ajax({
 				url: "{{ url_for('api_account_party',accountname=accountname) }}",
 				success: function(data) {
 					if(data.success) {
-						$.each(data.party,function(k,pokemon){
-							addpokemonrow(pokemon)
-						});
-						refreshtablesaw();
+						updatepokemontable(data.party);
 					}
 				}
 			});
+	};
+	togglefavoritepokemon = function(pokemonid) {
+		
+	}
+	$(function(){
+		refreshwholeparty();
+		$('th#sortable-checked').data('tablesaw-sort', function(ascending) {
+			return function(a,b) {				
+				// Ignore rows with data-tablesaw-ignorerow (leave them where they were)
+				if( a.ignored || b.ignored ) {
+					return 0;
+				}
+				achecked = $(a.element).find('input').is(':checked');
+				bchecked = $(b.element).find('input').is(':checked');
+				if(ascending){
+					return achecked && !bchecked ? 1 : -1;
+				}
+				return bchecked && !achecked ? 1 : -1;
+			};
+		});
 	});
 	</script>
     </head>
@@ -81,7 +119,6 @@
     Trainer Summary for {{ accountdata['user'] }}: (<a href="refresh">refresh</a>)<br/>
     {{ userdata.botSummary() }} <a href="evolvelist">evolutions available</a>: {{ totalevolutions }} (~{{ totalevolutions*500 }}xp)<br/>
 	<div class="tablecontainer">
-	<form method="post">
 	<input type="submit" name="release" formaction="release" value="release selected">
 	<input type="submit" name="release" formaction="rspbke2p" value="release shitty pokemon but keep enough to powerlevel"  onclick="return confirm('are you sure you wanna release shitty pokemon??');">
 	<select name="action_on_selected">
@@ -90,11 +127,11 @@
 		<option value="favorite">Toggle favorite</option>
 		<option value="release">Release</option>
 	</select>
-	<input type="submit" name="go_action_on_selected" formaction="batch_action_on_selected" value="go!">
+	<input type="submit" id="go_action_on_selected" name="go_action_on_selected" formaction="batch_action_on_selected" value="go!">
 	<table class="poketable tablesaw-row-border tablesaw-row-zebra" data-tablesaw-sortable data-tablesaw-mode="columntoggle">
 	<thead id="stickyheader" class="top">
 	<tr>
-		<th></th>
+		<th data-tablesaw-sortable-col id="sortable-checked">X</th>
 	{% for column in pokemon_columns %}
 		<th data-tablesaw-sortable-col data-tablesaw-priority="{{'persist' if column[1] == 'Pokemon Name' else '1'}}" {% for coltype in column[2] %} {{ coltype }} {% endfor %}>{{ column[1] }}</th>
 	{% endfor %}
@@ -111,6 +148,5 @@
 	{% endfor %}
 	</tbody>
 	</table>
-	</form>
 	</div>
 </body>
