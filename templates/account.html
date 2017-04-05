@@ -4,7 +4,6 @@
 	<link rel="stylesheet" href="{{ url_for('static', filename='fixedsticky.css') }}">
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
 	<script src="{{ url_for('static', filename='js/tablesaw/tablesaw.jquery.persistcolumns.js') }}"></script>
-	<script src="{{ url_for('static', filename='js/tablesaw/tablesaw-init.js') }}"></script>
 	<script src="{{ url_for('static', filename='js/fixedsticky.js') }}"></script>
 	<style>
 		span.favorite:after
@@ -25,6 +24,58 @@
 		table.poketable { width: 100%; border-collapse: collapse; }
 	</style>
 	<title>Pokevaluator: {{ accountdata['user'] }} </title>
+	<script>
+	columns = [
+		{% for column in pokemon_columns %}{'key': '{{ column[0] }}', 'name': '{{ column[1] }}', 'column_types': [{% for type in column[2]%}'{{type}}', {%endfor%}] },{% endfor %}
+	];
+	pokemoncell = function(pokemon, column) {
+		cell = $('<td id=' + column.key + '></td>')
+		if(column.key == 'name'){
+			name = pokemon['nickname'] ? pokemon['name'] + " (" + pokemon['nickname'] + ")" : pokemon['name']
+			span = $('<span>' + name + '</span>');
+			cell.append(span);
+			if(pokemon['favorite']) { $(cell).children().addClass('favorite') }
+			specials = $('<span></span>');
+			$.each(pokemon['special_types'],function(k,special) {
+				$(specials).addClass('special-' + special);
+			})
+			cell.append(specials);
+			return cell;
+		}
+		cell.append($('<span>' + pokemon[column.key] + '</span>'))
+		return cell
+	};
+	pokemonrow = function(pokemon) {
+		row = $('<tr id="' + pokemon.id + '"></tr>')
+		row.append($('<td><input type="checkbox" id="selected_pokemon" name="selected_pokemon" value="' + pokemon['id'] + '"></td>'))
+		$.each(columns,function(k,column){
+			row.append(pokemoncell(pokemon,column))
+		});
+		return row
+	};
+	addpokemonrow = function(pokemon) {
+		$('.poketable tbody').append(pokemonrow(pokemon))
+	};
+	updatepokemonrow = function(pokemon) {
+		
+	}
+	refreshtablesaw = function() {
+		$( document ).trigger( "enhance.tablesaw" );
+	}
+	$(function(){
+		$.ajax({
+				url: "{{ url_for('api_account_party',accountname=accountname) }}",
+				success: function(data) {
+					if(data.success) {
+						$.each(data.party,function(k,pokemon){
+							addpokemonrow(pokemon)
+						});
+						refreshtablesaw();
+					}
+				}
+			});
+	});
+	</script>
     </head>
     <body>
     Trainer Summary for {{ accountdata['user'] }}: (<a href="refresh">refresh</a>)<br/>
@@ -50,7 +101,7 @@
 	</tr>
 	</thead>
 	<tbody>
-	{% for p in pokemen %}
+	{% for p in [] %}
 	<tr class="{% if loop.index is even %}even{% else %}odd{% endif %}">
 			<td><input type="checkbox" name="selected_pokemon" value="{{ p['id'] }}"></td>
 		{% for column in pokemon_columns %}

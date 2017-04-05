@@ -3,7 +3,7 @@ import sys
 reload(sys)
 sys.setdefaultencoding('utf8')
 from math import sqrt, floor
-from flask import Flask, redirect, render_template, request
+from flask import Flask, redirect, render_template, request, jsonify
 import json
 from botdata import BotData
 from pgoapi import PGoApi
@@ -377,8 +377,8 @@ def account_v2(accountname):
     pokemen = pokemonlist(data)
     evolvelist = list_of_evolvable_pokemon(pokemen,data.data['candies'])
     columns = [
-        [padded_pokemon_id, 'Pokedex #', []],
-        [get_formatted_pokemon_name, 'Pokemon Name', []],
+        ['pokemon_id', 'Pokedex #', ['data-sortable-numeric']],
+        ['name', 'Pokemon Name', []],
         ['candies', '# Candies', ['data-sortable-numeric']],
         ['level', 'Level', ['data-sortable-numeric']],
         ['cp', 'CP', ['data-sortable-numeric']],
@@ -398,6 +398,7 @@ def account_v2(accountname):
         ['catchdate', 'Date Caught', []]
     ]
     return render_template('account.html',
+        accountname=accountname,
         accountdata=accountdata,
         userdata=data,
         pokemen=pokemen,
@@ -457,6 +458,16 @@ def refresh_account(accountname):
         raise e
         return redirect('/')
         
+@app.route("/api/<accountname>/party",methods=['GET'])
+def api_account_party(accountname):
+    botdata = get_bot_data(accountname)
+    session = get_poko_session(accountname)
+    if botdata is None or session is None:
+        return jsonify({'success': False})
+    updateBotData(session,botdata)
+    pokemen = pokemonlist(botdata)
+    return jsonify({'success': True, 'party': pokemen})
+    
 def get_party(session):
     inv = session.checkInventory()
     if inv:
