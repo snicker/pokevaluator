@@ -1,0 +1,65 @@
+<html>
+    <head>
+	<link rel="stylesheet" href="{{ url_for('static', filename='js/tablesaw/tablesaw.css') }}">
+	<link rel="stylesheet" href="{{ url_for('static', filename='fixedsticky.css') }}">
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+	<script src="{{ url_for('static', filename='js/tablesaw/tablesaw.jquery.persistcolumns.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/tablesaw/tablesaw-init.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/fixedsticky.js') }}"></script>
+	<style>
+		span.favorite:after
+		{
+			content:url('{{ url_for('static', filename='img/favorite.png') }}');
+		}
+		span.special-party-hat:after
+		{
+			content:url('{{ url_for('static', filename='img/party-hat.png') }}');
+		}
+		span.special-santa-hat:after
+		{
+			content:url('{{ url_for('static', filename='img/santa-hat.png') }}');
+		}
+		.top { top: 0px; }
+		.tablecontainer { width: 100%; margin: 0 auto; }
+		table.poketable th, table.poketable td { line-height: 1 ; }
+		table.poketable { width: 100%; border-collapse: collapse; }
+	</style>
+	<title>Pokevaluator: {{ accountdata['user'] }} </title>
+    </head>
+    <body>
+    Trainer Summary for {{ accountdata['user'] }}: (<a href="refresh">refresh</a>)<br/>
+    {{ userdata.botSummary() }} <a href="evolvelist">evolutions available</a>: {{ totalevolutions }} (~{{ totalevolutions*500 }}xp)<br/>
+	<div class="tablecontainer">
+	<form method="post">
+	<input type="submit" name="release" formaction="release" value="release selected">
+	<input type="submit" name="release" formaction="rspbke2p" value="release shitty pokemon but keep enough to powerlevel"  onclick="return confirm('are you sure you wanna release shitty pokemon??');">
+	<select name="action_on_selected">
+		<option value="None" selected="selected">---</option>
+		<option value="evolve">Evolve</option>
+		<option value="favorite">Toggle favorite</option>
+		<option value="release">Release</option>
+	</select>
+	<input type="submit" name="go_action_on_selected" formaction="batch_action_on_selected" value="go!">
+	<table class="poketable tablesaw-row-border tablesaw-row-zebra" data-tablesaw-sortable data-tablesaw-mode="columntoggle">
+	<thead id="stickyheader" class="top">
+	<tr>
+		<th></th>
+	{% for column in pokemon_columns %}
+		<th data-tablesaw-sortable-col data-tablesaw-priority="{{'persist' if column[1] == 'Pokemon Name' else '1'}}" {% for coltype in column[2] %} {{ coltype }} {% endfor %}>{{ column[1] }}</th>
+	{% endfor %}
+	</tr>
+	</thead>
+	<tbody>
+	{% for p in pokemen %}
+	<tr class="{% if loop.index is even %}even{% else %}odd{% endif %}">
+			<td><input type="checkbox" name="selected_pokemon" value="{{ p['id'] }}"></td>
+		{% for column in pokemon_columns %}
+			<td><span class="{{'favorite ' if column[1] == 'Pokemon Name' and p['favorite'] else '' }}">{{ process_template_column(column[0],p) }}</span><span class="{% if column[1] == 'Pokemon Name' %}{% for special in p['special_types'] %}special-{{special}} {% endfor %}{% endif %}"></span></td>
+		{% endfor %}
+	</tr>
+	{% endfor %}
+	</tbody>
+	</table>
+	</form>
+	</div>
+</body>

@@ -1,0 +1,32 @@
+<html>
+    <head>
+    <script src="http://www.kryogenix.org/code/browser/sorttable/sorttable.js"></script>
+	<style>
+		.sortable {
+		}
+		span.favorite:after
+		{
+			content:url('{{ url_for('static', filename='img/favorite.png') }}');
+		}
+	</style>
+	<title>Pokevaluator: {{ accountdata['user'] }} - Evolutions List </title>
+    </head>
+    <body>
+    Evolution List for {{ accountdata['user'] }}:<br/>
+    Evolutions available: {{ totalevolutions }} (~{{ totalevolutions*500 }}xp)<br/>
+	<table class="sortable">
+	<tr>
+	{% for column in pokemon_columns %}
+		<th>{{ column[1] }}</th>
+	{% endfor %}
+	</tr>
+	{% for p in pokemen %}
+	<tr>
+		{% for column in pokemon_columns %}
+			<td><span class="{{'favorite' if column[1] == 'Pokemon Name' and p['favorite'] else '' }}">{{ process_template_column(column[0],p) }}</span></td>
+		{% endfor %}
+	</tr>
+	{% endfor %}
+	</table>
+	</form>
+</body>
