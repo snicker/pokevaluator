@@ -721,4 +721,4 @@ ITEMDATA = POKEMONDATA.get('responses').get('DOWNLOAD_ITEM_TEMPLATES').get('item
 BESTPDATA = {p['pokemon_id']: p for p in [dict(template_id=k.get('template_id'),**k['pokemon_settings']) for k in ITEMDATA if 'pokemon_settings' in k.keys()]}
         
 if __name__ == "__main__":
-    app.run(port=9999)
+    app.run(port=9999,host="0.0.0.0")
