@@ -92,7 +92,10 @@ class pgoapiSession(object):
     def get_seshdata(self,forcerefresh = False):
         if self.seshdata is None or forcerefresh:
             self.api.set_position(0,0)
-            self.seshdata = self.api.app_simulation_login()
+            req = self.api.create_request()
+            req.get_player()
+            req.get_inventory()
+            self.seshdata = req.call()
         return self.seshdata
         
     @property
@@ -100,11 +103,16 @@ class pgoapiSession(object):
         if self.get_seshdata():
             return self.get_seshdata().get('responses',{}).get('GET_INVENTORY',{}).get('inventory_delta',{}).get('inventory_items',[])
     
+    @property
+    def player_data(self):
+        if self.get_seshdata():
+            return self.get_seshdata().get('responses',{}).get('GET_PLAYER',{}).get('player_data',{})
+    
     def getInventory(self):
         if self.invdata is None:
             return self.checkInventory()
         return self.invdata
-        
+
     def evolvePokemon(self, pokemon):
         self.api.set_position(0,0)
         request = self.api.create_request()
@@ -238,7 +246,9 @@ def updateBotData(session,botdata):
     botdata.updateStats(inventory['stats'])
     botdata.updateParty(inventory['party'])
     botdata.updateIncubators(inventory['incubators'])
-    botdata.updateCandies(inventory['candies'])    
+    botdata.updateCandies(inventory['candies'])  
+    if session.player_data:
+        botdata.updatePlayerData(session.player_data)
 
 def isPokemonGood(session,pokemon,minperfect=0.9,minalmostperfect=0.8,mincp=1600):
     logging.debug("Checking if {p} ({cp}) is good...".format(p=pokemon.pokemon_id,cp=pokemon.cp))
@@ -549,7 +559,9 @@ def pokemonlist(botdata):
     global PDATA
     pokemen = []
     stats = botdata.getStats()
-    level = stats.level
+    level = 0
+    if stats:
+        level = stats.level
     for pokemon in botdata.getParty():
         p = pokemon_formatted(pokemon)
         candytypeforpokemon = get_candy_type_for_pokemon(p)
