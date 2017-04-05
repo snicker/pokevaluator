@@ -304,29 +304,32 @@ def release_pokemon(accountname):
     return redirect('/{}/'.format(accountname))
     
     
-def batch_evolve(accountname, pokemen):
+def batch_evolve(accountname, pokemen, delay=4):
     session = get_poko_session(accountname)
     for pokemon in pokemen:
         print("evolving {}".format(pokemon))
         session.evolvePokemon(pokemon)
-        time.sleep(4)
+        time.sleep(delay)
     
-def batch_favorite(accountname, pokemen):
+def batch_favorite(accountname, pokemen, delay=0.3):
     session = get_poko_session(accountname)
     for pokemon in pokemen:
         fav_toggled = False if pokemon.favorite == 1 else True
         session.favoritePokemon(pokemon,fav_toggled)
-        time.sleep(0.3)
+        time.sleep(delay)
 
-def batch_release(accountname, pokemen):
+def batch_release(accountname, pokemen, delay=1):
     pass
     
 @app.route("/<accountname>/batch_action_on_selected", methods=['POST'])
-def batch_action_on_selected(accountname):
+def batch_action_on_selected_route(accountname):
     pokemon_ids = request.form.getlist('selected_pokemon')
-    print(pokemon_ids)
-    valid_actions = {'evolve': batch_evolve, 'favorite': batch_favorite, 'release': batch_release}
     action = request.form.get('action_on_selected')
+    batch_action_on_selected(accountname, pokemon_ids, action)
+    return redirect('/{}/'.format(accountname))    
+
+def batch_action_on_selected(accountname, pokemon_ids, action, delay=None):
+    valid_actions = {'evolve': batch_evolve, 'favorite': batch_favorite, 'release': batch_release}
     if action in valid_actions:
         botdata = get_bot_data(accountname)
         session = get_poko_session(accountname)
@@ -337,11 +340,19 @@ def batch_action_on_selected(accountname):
                 for id in pokemon_ids:
                     if str(id) == str(pokemon.id):
                         pokemen.append(pokemon)
-        print(pokemen)
-        valid_actions[action](accountname, pokemen)
+        if delay is not None:
+            valid_actions[action](accountname, pokemen, delay=delay)
+        else:
+            valid_actions[action](accountname, pokemen)
         session.checkInventory()
         updateBotData(session,botdata)
-    return redirect('/{}/'.format(accountname))    
+        allpokemon = pokemonlist(botdata)
+        pokemen = []
+        for pokemon in allpokemon:
+            for id in pokemon_ids:
+                if str(id) == str(pokemon.get('id')):
+                    pokemen.append(pokemon)
+    return pokemen
 
 @app.route("/<accountname>/rspbke2p", methods=['POST','GET'])
 def rspbke2p(accountname):
@@ -467,6 +478,16 @@ def api_account_party(accountname):
     updateBotData(session,botdata)
     pokemen = pokemonlist(botdata)
     return jsonify({'success': True, 'party': pokemen})
+    
+@app.route("/api/<accountname>/favorite", methods=['POST'])
+def api_toggle_favorite(accountname):
+    if not request.json or 'pokemon_ids' not in request.json:
+        return jsonify({'success': False})
+    pokemon_ids = request.json.get('pokemon_ids')
+    if(len(pokemon_ids) > 0):
+        delay = 0 if len(pokemon_ids) == 1 else None
+        pokemen = batch_action_on_selected(accountname, pokemon_ids, 'favorite', delay=delay)
+    return jsonify({'success': True, 'partydelta': pokemen})
     
 def get_party(session):
     inv = session.checkInventory()
