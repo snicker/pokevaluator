@@ -74,16 +74,16 @@
 			existingrow = $('.poketable tr#' + pokemon.previous_id);
 		}
 		if(existingrow.length > 0) {
-			console.log("updating a pokemon row")
-			console.log(pokemon)
+			// console.log("updating a pokemon row")
+			// console.log(pokemon)
 			existingrow.replaceWith(pokemonrow(pokemon))
 		}
 	};
 	removepokemonrow = function(pokemon) {
 		existingrow = $('.poketable tr#' + pokemon.id);
 		if(existingrow.length > 0) {
-			console.log("removing a pokemon row")
-			console.log(pokemon)
+			//console.log("removing a pokemon row")
+			//console.log(pokemon)
 			existingrow.remove()
 		}
 	}
@@ -105,8 +105,8 @@
 		$( document ).trigger( "enhance.tablesaw" );
 	}
 	updatepokemontable = function(partydelta,fullrefresh=false) {
-		console.log("updating the pokemon table")
-		console.log(partydelta)
+		// console.log("updating the pokemon table")
+		// console.log(partydelta)
 		$.each(partydelta.added,function(k,pokemon){
 			updateoradpokemonrow(pokemon)
 		});
