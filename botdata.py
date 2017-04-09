@@ -146,8 +146,9 @@ class BotData(object):
         prevlvlxp = stats.prev_level_xp
         xptnl = int(nextlvlxp) - int(xp)
         xpthislevel = int(ld['xptnl'])
+        timetnl = (xptnl + 0.0) / self.xp_per_hour() * 60 * 60
         tnlpct = (1-(float(xptnl)/xpthislevel))*100
-        return "Level {level}, {xp}xp, {xptnl}xp tnl ({tnlpct:3.2f}%), {km:3.2f}km walked, {pokemon} pokemon in party. xp/hr: {xphr:0.0f} created:{created} ago".format(created=self.createdString(),xphr=self.xp_per_hour(),level=stats.level,xp=xp,xptnl=xptnl,tnlpct=tnlpct,km=stats.km_walked,pokemon=len(party))
+        return "Level {level}, {xp}xp, {xptnl}xp tnl ({tnlpct:3.2f}%), {timetnl} etatnl, {km:3.2f}km walked, {pokemon} pokemon in party. xp/hr: {xphr:0.0f} created:{created} ago".format(timetnl=self.elapsedTimeString(timetnl,granularity=2),created=self.createdString(),xphr=self.xp_per_hour(),level=stats.level,xp=xp,xptnl=xptnl,tnlpct=tnlpct,km=stats.km_walked,pokemon=len(party))
     
     def getCoordinatesString(self):
         return "{lat}, {long}".format(lat=self.data['location']['lat'],long=self.data['location']['long'])
