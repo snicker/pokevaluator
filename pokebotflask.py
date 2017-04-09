@@ -483,13 +483,15 @@ def refresh_account(accountname):
         raise e
         return redirect('/')
         
-@app.route("/api/<accountname>/party",methods=['GET'])
-def api_account_party(accountname):
+@app.route("/api/<accountname>/party",methods=['GET'],defaults={'refresh': False})
+@app.route("/api/<accountname>/party/<refresh>",methods=['GET'])
+def api_account_party(accountname,refresh=False):
     botdata = get_bot_data(accountname)
     session = get_poko_session(accountname)
     if botdata is None or session is None:
         return jsonify({'success': False})
-    updateBotData(session,botdata)
+    if refresh:
+        updateBotData(session,botdata)
     pokemen = pokemonlist(botdata)
     return jsonify({'success': True, 'partydelta': {'added': pokemen}})
     
