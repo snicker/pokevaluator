@@ -18,6 +18,14 @@
 		{
 			content:url('{{ url_for('static', filename='img/santa-hat.png') }}');
 		}
+		div#wait
+		{
+			background: url('{{ url_for('static', filename='img/loading.gif') }}') no-repeat;
+			display: none;
+			width:26px;
+			height:26px;
+			float:right;
+		}
 		.top { top: 0px; }
 		.tablecontainer { width: 100%; margin: 0 auto; }
 		table.poketable th, table.poketable td { line-height: 1 ; }
@@ -185,6 +193,12 @@
 		return $('input#selected_pokemon:checked').map(function() { return $(this).val(); })
 	}
 	$(function(){
+		$(document).ajaxStart(function(){
+			$("#wait").css("display", "block");
+		});
+		$(document).ajaxComplete(function(){
+			$("#wait").css("display", "none");
+		});
 		refreshwholeparty();
 		$('th#sortable-checked').data('tablesaw-sort', function(ascending) {
 			return function(a,b) {				
@@ -232,7 +246,7 @@
 	</script>
     </head>
     <body>
-    Trainer Summary for {{ accountdata['user'] }}: (<a href="refresh" id="refreshlink">refresh</a>)<br/>
+    Trainer Summary for {{ accountdata['user'] }}: (<a href="refresh" id="refreshlink">refresh</a>) <div id="wait"></div><br/>
     {{ userdata.botSummary() }} <a href="evolvelist">evolutions available</a>: {{ totalevolutions }} (~{{ totalevolutions*500 }}xp)<br/>
 	<div class="tablecontainer">
 	<input type="submit" name="release" formaction="release" value="release selected">
