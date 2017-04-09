@@ -62,14 +62,28 @@
 	};
 	updatepokemonrow = function(pokemon) {
 		existingrow = $('.poketable tr#' + pokemon.id);
+		if(existingrow.length == 0 && pokemon.previous_id) {
+			existingrow = $('.poketable tr#' + pokemon.previous_id);
+		}
 		if(existingrow.length > 0) {
 			console.log("updating a pokemon row")
 			console.log(pokemon)
 			existingrow.replaceWith(pokemonrow(pokemon))
 		}
 	};
+	removepokemonrow = function(pokemon) {
+		existingrow = $('.poketable tr#' + pokemon.id);
+		if(existingrow.length > 0) {
+			console.log("removing a pokemon row")
+			console.log(pokemon)
+			existingrow.remove()
+		}
+	}
 	updateoradpokemonrow = function(pokemon) {
 		existingrow = $('.poketable tr#' + pokemon.id);
+		if(existingrow.length == 0 && pokemon.previous_id) {
+			existingrow = $('.poketable tr#' + pokemon.previous_id);
+		}
 		if(existingrow.length > 0) {
 			updatepokemonrow(pokemon);
 		} else {
@@ -82,11 +96,17 @@
 		$('.tablesaw-bar').remove();
 		$( document ).trigger( "enhance.tablesaw" );
 	}
-	updatepokemontable = function(party) {
+	updatepokemontable = function(partydelta) {
 		console.log("updating the pokemon table")
-		console.log(party)
-		$.each(party,function(k,pokemon){
+		console.log(partydelta)
+		$.each(partydelta.added,function(k,pokemon){
 			updateoradpokemonrow(pokemon)
+		});
+		$.each(partydelta.changed,function(k,pokemon){
+			updateoradpokemonrow(pokemon)
+		});
+		$.each(partydelta.released,function(k,pokemon){
+			removepokemonrow(pokemon)
 		});
 		refreshtablesaw();
 	}
@@ -95,7 +115,7 @@
 				url: "{{ url_for('api_account_party',accountname=accountname) }}",
 				success: function(data) {
 					if(data.success) {
-						updatepokemontable(data.party);
+						updatepokemontable(data.partydelta);
 					}
 				}
 			});
@@ -114,7 +134,37 @@
 				}
 			}
 		});
-	}
+	};
+	evolvepokemon = function(pokemonid) {
+		console.log("evolving " + pokemonid)
+		$.ajax({
+			url: "{{ url_for('api_evolve',accountname=accountname) }}",
+			type: "POST",
+			processData: false,
+			contentType: 'application/json',
+			data: JSON.stringify({"pokemon_ids": [pokemonid]}),
+			success: function(data) {
+				if(data.success) {
+					updatepokemontable(data.partydelta);
+				}
+			}
+		});
+	};
+	releasepokemon = function(pokemonids) {
+		console.log("releasing  " + pokemonids)
+		$.ajax({
+			url: "{{ url_for('api_release',accountname=accountname) }}",
+			type: "POST",
+			processData: false,
+			contentType: 'application/json',
+			data: JSON.stringify({"pokemon_ids": pokemonids}),
+			success: function(data) {
+				if(data.success) {
+					updatepokemontable(data.partydelta);
+				}
+			}
+		});
+	};
 	get_selected_pokemon = function() {
 		return $('input#selected_pokemon:checked').map(function() { return $(this).val(); })
 	}
@@ -136,11 +186,23 @@
 		});
 		$('#go_action_on_selected').click(function(e) {
 			action = $('#action_on_selected').find('option:selected').val();
-			actions = {'favorite': {'call': togglefavoritepokemon, 'delay': 300}};
+			actions = {
+				'favorite': {'call': togglefavoritepokemon, 'delay': 300},
+				'evolve': {'call': evolvepokemon, 'delay': 4000},
+				'release': {'call': releasepokemon, 'delay': 0}
+			};
 			if(actions[action]) {
 				pokemon_ids = get_selected_pokemon()
-				for(i=0;i<pokemon_ids.length; i++){
-					setTimeout(actions[action]['call'], i*actions[action]['delay'],pokemon_ids[i])
+				if(action == 'release') {
+					ids = []
+					for(i=0;i<pokemon_ids.length; i++){
+						ids.push(pokemon_ids[i])
+					}
+					setTimeout(actions[action]['call'], 0,ids)
+				} else {
+					for(i=0;i<pokemon_ids.length; i++){
+						setTimeout(actions[action]['call'], i*actions[action]['delay'],pokemon_ids[i])
+					}
 				}
 			}
 			e.handled = true;

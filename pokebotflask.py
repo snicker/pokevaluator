@@ -121,6 +121,7 @@ class pgoapiSession(object):
         return response
         
     def releasePokemon(self, pokemon):
+        self.api.set_position(0,0)
         request = self.api.create_request()
         request.release_pokemon(pokemon_id=pokemon.id)
         response = request.call()
@@ -134,6 +135,7 @@ class pgoapiSession(object):
         return response
         
     def releaseMultiplePokemon(self, pokemen):
+        self.api.set_position(0,0)
         request = self.api.create_request()
         pokemon_ids = []
         for pokemon in pokemen:
@@ -306,20 +308,36 @@ def release_pokemon(accountname):
     
 def batch_evolve(accountname, pokemen, delay=4):
     session = get_poko_session(accountname)
+    results = []
     for pokemon in pokemen:
         print("evolving {}".format(pokemon))
-        session.evolvePokemon(pokemon)
+        response = session.evolvePokemon(pokemon)
+        success = response.get('responses',{}).get('EVOLVE_POKEMON',{}).get('result') == 1
+        if success:
+            evolved_pokemon = response.get('responses',{}).get('EVOLVE_POKEMON',{}).get('evolved_pokemon_data')
+            if evolved_pokemon:
+                evolved_pokemon = PokemonItem(evolved_pokemon)
+                evolved_pokemon['previous_id'] = str(pokemon.id)
+                results.append(evolved_pokemon)
         time.sleep(delay)
+    session.checkInventory()
+    return results
     
 def batch_favorite(accountname, pokemen, delay=0.3):
     session = get_poko_session(accountname)
+    results = []
     for pokemon in pokemen:
         fav_toggled = False if pokemon.favorite == 1 else True
-        session.favoritePokemon(pokemon,fav_toggled)
+        response = session.favoritePokemon(pokemon,fav_toggled)
+        if response.get('responses',{}).get('SET_FAVORITE_POKEMON',{}).get('result') == 1:
+            pokemon['favorite'] = 1 if fav_toggled else None
         time.sleep(delay)
+    return pokemen
 
 def batch_release(accountname, pokemen, delay=1):
-    pass
+    session = get_poko_session(accountname)
+    session.releaseMultiplePokemon(pokemen)
+    return pokemen
     
 @app.route("/<accountname>/batch_action_on_selected", methods=['POST'])
 def batch_action_on_selected_route(accountname):
@@ -330,10 +348,12 @@ def batch_action_on_selected_route(accountname):
 
 def batch_action_on_selected(accountname, pokemon_ids, action, delay=None):
     valid_actions = {'evolve': batch_evolve, 'favorite': batch_favorite, 'release': batch_release}
+    pokemen_results = []
     if action in valid_actions:
         botdata = get_bot_data(accountname)
         session = get_poko_session(accountname)
         pokemen = []
+        batch_results = []
         if botdata is not None and session is not None:
             party = get_party(session)
             for pokemon in party:
@@ -341,18 +361,12 @@ def batch_action_on_selected(accountname, pokemon_ids, action, delay=None):
                     if str(id) == str(pokemon.id):
                         pokemen.append(pokemon)
         if delay is not None:
-            valid_actions[action](accountname, pokemen, delay=delay)
+            batch_results = valid_actions[action](accountname, pokemen, delay=delay)
         else:
-            valid_actions[action](accountname, pokemen)
-        session.checkInventory()
+            batch_results = valid_actions[action](accountname, pokemen)
         updateBotData(session,botdata)
-        allpokemon = pokemonlist(botdata)
-        pokemen = []
-        for pokemon in allpokemon:
-            for id in pokemon_ids:
-                if str(id) == str(pokemon.get('id')):
-                    pokemen.append(pokemon)
-    return pokemen
+        pokemen_results = pokemonlist(botdata,party=batch_results)
+    return pokemen_results
 
 @app.route("/<accountname>/rspbke2p", methods=['POST','GET'])
 def rspbke2p(accountname):
@@ -477,7 +491,7 @@ def api_account_party(accountname):
         return jsonify({'success': False})
     updateBotData(session,botdata)
     pokemen = pokemonlist(botdata)
-    return jsonify({'success': True, 'party': pokemen})
+    return jsonify({'success': True, 'partydelta': {'added': pokemen}})
     
 @app.route("/api/<accountname>/favorite", methods=['POST'])
 def api_toggle_favorite(accountname):
@@ -487,7 +501,27 @@ def api_toggle_favorite(accountname):
     if(len(pokemon_ids) > 0):
         delay = 0 if len(pokemon_ids) == 1 else None
         pokemen = batch_action_on_selected(accountname, pokemon_ids, 'favorite', delay=delay)
-    return jsonify({'success': True, 'partydelta': pokemen})
+    return jsonify({'success': True, 'partydelta': {'changed': pokemen}})
+    
+@app.route("/api/<accountname>/evolve", methods=['POST'])
+def api_evolve(accountname):
+    if not request.json or 'pokemon_ids' not in request.json:
+        return jsonify({'success': False})
+    pokemon_ids = request.json.get('pokemon_ids')
+    if(len(pokemon_ids) > 0):
+        delay = 0 if len(pokemon_ids) == 1 else None
+        pokemen = batch_action_on_selected(accountname, pokemon_ids, 'evolve', delay=delay)
+    return jsonify({'success': True, 'partydelta': {'changed': pokemen}})
+    
+@app.route("/api/<accountname>/release", methods=['POST'])
+def api_release(accountname):
+    if not request.json or 'pokemon_ids' not in request.json:
+        return jsonify({'success': False})
+    pokemon_ids = request.json.get('pokemon_ids')
+    if(len(pokemon_ids) > 0):
+        delay = 0 if len(pokemon_ids) == 1 else None
+        pokemen = batch_action_on_selected(accountname, pokemon_ids, 'release', delay=delay)
+    return jsonify({'success': True, 'partydelta': {'released': pokemen}})
     
 def get_party(session):
     inv = session.checkInventory()
@@ -587,19 +621,21 @@ def pokemon_formatted(pokemon):
     p['special_types'] = pokemon.special_types
     return p
     
-def pokemonlist(botdata):
+def pokemonlist(botdata,party=None):
     global PDATA
     pokemen = []
+    party = party or botdata.getParty()
     stats = botdata.getStats()
     level = 0
     if stats:
         level = stats.level
-    for pokemon in botdata.getParty():
+    for pokemon in party:
         p = pokemon_formatted(pokemon)
         candytypeforpokemon = get_candy_type_for_pokemon(p)
         p['candies'] = botdata.getCandiesFor(candytypeforpokemon)
         p['max_cp_at_player_level'] = get_cp_for_pokemon(p,level+1.5)
         p['max_cp_at_max_evolution'] = get_cp_for_fully_evolved_pokemon(p,level=level+1.5)
+        p['previous_id'] = pokemon.get('previous_id')
         pokemen.append(p)
     pokemen = sorted(pokemen, key=lambda k: k['cp'], reverse=True)
     return pokemen
