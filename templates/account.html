@@ -96,7 +96,7 @@
 		$('.tablesaw-bar').remove();
 		$( document ).trigger( "enhance.tablesaw" );
 	}
-	updatepokemontable = function(partydelta) {
+	updatepokemontable = function(partydelta,fullrefresh=false) {
 		console.log("updating the pokemon table")
 		console.log(partydelta)
 		$.each(partydelta.added,function(k,pokemon){
@@ -108,14 +108,30 @@
 		$.each(partydelta.released,function(k,pokemon){
 			removepokemonrow(pokemon)
 		});
+		if(fullrefresh){
+			toremove = [];
+			$.each($('#poketable tbody tr'), function(k,row) {
+				for(i=0;i<partydelta.added.length;i++){
+					if(partydelta.added[i].id == row.id) {
+						return;
+					}
+				}
+				toremove.push(row);
+			});
+			$(toremove).remove();
+		}
 		refreshtablesaw();
 	}
-	refreshwholeparty = function() {
+	refreshwholeparty = function(fullrefresh=false) {
+		url = "{{ url_for('api_account_party',accountname=accountname) }}";
+		if(fullrefresh) { 
+			url = "{{ url_for('api_account_party',accountname=accountname,refresh=True) }}";
+		}
 		$.ajax({
-				url: "{{ url_for('api_account_party',accountname=accountname) }}",
+				url: url,
 				success: function(data) {
 					if(data.success) {
-						updatepokemontable(data.partydelta);
+						updatepokemontable(data.partydelta,fullrefresh);
 					}
 				}
 			});
@@ -184,6 +200,11 @@
 				return bchecked && !achecked ? 1 : -1;
 			};
 		});
+		$('#refreshlink').click(function(e) {
+			refreshwholeparty(true);
+			e.preventDefault();
+			return false;
+		});
 		$('#go_action_on_selected').click(function(e) {
 			action = $('#action_on_selected').find('option:selected').val();
 			actions = {
@@ -211,7 +232,7 @@
 	</script>
     </head>
     <body>
-    Trainer Summary for {{ accountdata['user'] }}: (<a href="refresh">refresh</a>)<br/>
+    Trainer Summary for {{ accountdata['user'] }}: (<a href="refresh" id="refreshlink">refresh</a>)<br/>
     {{ userdata.botSummary() }} <a href="evolvelist">evolutions available</a>: {{ totalevolutions }} (~{{ totalevolutions*500 }}xp)<br/>
 	<div class="tablecontainer">
 	<input type="submit" name="release" formaction="release" value="release selected">
