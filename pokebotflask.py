@@ -401,6 +401,10 @@ def account_v2(accountname):
     data = BotData('botdata/'+username+'.botdata.dat')
     pokemen = pokemonlist(data)
     evolvelist = list_of_evolvable_pokemon(pokemen,data.data['candies'])
+    total_stardust_spent = sum([p.get('currency_spent_on_pokemon',{}).get('stardust_cost') for p in pokemen])
+    stardust = sum([c.get('amount',0) for c in data.getPlayerData().get('currencies',[]) if c.get('name') == 'STARDUST'])
+    total_stardust = total_stardust_spent + stardust
+    stardust_per_day = int((total_stardust + 0.0) / (data.created() / 60 / 60 / 24))
     columns = [
         ['pokemon_id', 'Pokedex #', ['data-sortable-numeric']],
         ['name', 'Pokemon Name', []],
@@ -432,7 +436,10 @@ def account_v2(accountname):
         totalevolutions=sum(evolvelist[x] for x in evolvelist),
         PDATA=PDATA,
         BETTERPDATA=BETTERPDATA,
-        process_template_column=process_template_column
+        process_template_column=process_template_column,
+        total_stardust_spent = total_stardust_spent,
+        stardust = stardust,
+        stardust_per_day = stardust_per_day
     )
 
 @app.route("/<accountname>/evolvelist")
@@ -621,6 +628,7 @@ def pokemon_formatted(pokemon):
     p['level'] = get_level_for_pokemon(p)
     p['cpl'] = p['cp'] / p['level'] if p['level'] > 0 else 0
     p['special_types'] = pokemon.special_types
+    p['currency_spent_on_pokemon'] = get_currency_spent_on_pokemon(p)
     return p
     
 def pokemonlist(botdata,party=None):
@@ -638,6 +646,9 @@ def pokemonlist(botdata,party=None):
         p['max_cp_at_player_level'] = get_cp_for_pokemon(p,level+1.5)
         p['max_cp_at_max_evolution'] = get_cp_for_fully_evolved_pokemon(p,level=level+1.5)
         p['previous_id'] = pokemon.get('previous_id')
+        future_costs = get_currency_spent_on_pokemon(p,level=level+1.5)
+        p['candy_cost_to_max_level'] = future_costs.get('candy_cost') - p['currency_spent_on_pokemon'].get('candy_cost')
+        p['stardust_cost_to_max_level'] = future_costs.get('stardust_cost') - p['currency_spent_on_pokemon'].get('stardust_cost')
         pokemen.append(p)
     pokemen = sorted(pokemen, key=lambda k: k['cp'], reverse=True)
     return pokemen
@@ -742,6 +753,29 @@ def get_level_for_pokemon(pokemon):
             if levels[lmax] <= lmax:
                 return max(0,round(levels[lmax] * 2) / 2)
     return -1
+    
+def get_candy_spent_on_pokemon(pokemon, level = None):
+    return get_currency_spent_on_pokemon(pokemon,'candy_cost', level=level)
+
+def get_stardust_spent_on_pokemon(pokemon, level = None):
+    return get_currency_spent_on_pokemon(pokemon,'stardust_cost', level=level)
+    
+def get_currency_spent_on_pokemon(pokemon,currency_type = None, level = None):
+    valid_currency_types = ('candy_cost','stardust_cost')
+    if currency_type not in valid_currency_types:
+        out = {}
+        map(lambda x: out.update(get_currency_spent_on_pokemon(pokemon, x, level=level)),valid_currency_types)
+        return out
+    currency_per_level = next((x['pokemon_upgrades'] for x in POKEMONDATA['responses']['DOWNLOAD_ITEM_TEMPLATES']['item_templates'] if 'pokemon_upgrades' in x),{}).get(currency_type)
+    pokemon_level = min(40,level or get_level_for_pokemon(pokemon))
+    num_upgrades = pokemon.get('powerups',0)
+    totalcost = 0
+    if currency_per_level is not None and pokemon_level > -1 and num_upgrades > 0:
+        while num_upgrades > 0:
+            pokemon_level -= 0.5
+            totalcost += currency_per_level[max(0,int(pokemon_level-1))]
+            num_upgrades -= 1
+    return {currency_type: totalcost}
 
 def get_move_name(moveid):
     desc = PokemonMove.DESCRIPTOR
