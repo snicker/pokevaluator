@@ -30,6 +30,8 @@
 		.tablecontainer { width: 100%; margin: 0 auto; }
 		table.poketable th, table.poketable td { line-height: 1 ; }
 		table.poketable { width: 100%; border-collapse: collapse; }
+		a, a:visited, a:active { color: #000; text-decoration: none; }
+		a:hover { color: #222; text-decoration: underline; }
 	</style>
 	<title>Pokevaluator: {{ accountdata['user'] }} </title>
 	<script>
@@ -40,7 +42,7 @@
 		cell = $('<td id=' + column.key + '></td>')
 		if(column.key == 'name'){
 			name = pokemon['nickname'] ? pokemon['name'] + " (" + pokemon['nickname'] + ")" : pokemon['name']
-			span = $('<span>' + name + '</span>');
+			span = $('<span><a target="_blank" href="{{ url_for('account_v2',accountname=accountname) }}pokemon/' + pokemon['name'] + '/' + pokemon['id'] + '">' + name + '</a></span>');
 			cell.append(span);
 			if(pokemon['favorite']) { $(cell).children().addClass('favorite') }
 			specials = $('<span></span>');

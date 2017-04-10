@@ -5,6 +5,7 @@ sys.setdefaultencoding('utf8')
 from math import sqrt, floor
 from flask import Flask, redirect, render_template, request, jsonify
 import json
+import pprint
 from botdata import BotData
 from pgoapi import PGoApi
 from pgoapi.protos.pogoprotos.enums.pokemon_move_pb2 import PokemonMove
@@ -441,6 +442,19 @@ def account_v2(accountname):
         stardust = stardust,
         stardust_per_day = stardust_per_day
     )
+    
+@app.route("/<accountname>/pokemon/<pokemonname>/<int:pokemonid>")
+def pokemon_page(accountname,pokemonname,pokemonid):
+    accountdata = get_account_data(accountname)
+    if accountdata is None:
+        return redirect('/{}/'.format(accountname))
+    username = accountdata['user']
+    data = BotData('botdata/'+username+'.botdata.dat')
+    pokemen = pokemonlist(data)
+    pokemon = next((p for p in pokemen if str(p['id']) == str(pokemonid)),None)
+    if pokemon is None:
+        return redirect('/{}/'.format(accountname))
+    return jsonify(pokemon)
 
 @app.route("/<accountname>/evolvelist")
 def evolvelist(accountname):
@@ -647,8 +661,10 @@ def pokemonlist(botdata,party=None):
         p['max_cp_at_max_evolution'] = get_cp_for_fully_evolved_pokemon(p,level=level+1.5)
         p['previous_id'] = pokemon.get('previous_id')
         future_costs = get_currency_spent_on_pokemon(p,level=level+1.5)
-        p['candy_cost_to_max_level'] = future_costs.get('candy_cost') - p['currency_spent_on_pokemon'].get('candy_cost')
-        p['stardust_cost_to_max_level'] = future_costs.get('stardust_cost') - p['currency_spent_on_pokemon'].get('stardust_cost')
+        p['currency_cost_to_max_level'] = {
+            'candy_cost': future_costs.get('candy_cost') - p['currency_spent_on_pokemon'].get('candy_cost'),
+            'stardust_cost': future_costs.get('stardust_cost') - p['currency_spent_on_pokemon'].get('stardust_cost')
+        }
         pokemen.append(p)
     pokemen = sorted(pokemen, key=lambda k: k['cp'], reverse=True)
     return pokemen
@@ -767,13 +783,14 @@ def get_currency_spent_on_pokemon(pokemon,currency_type = None, level = None):
         map(lambda x: out.update(get_currency_spent_on_pokemon(pokemon, x, level=level)),valid_currency_types)
         return out
     currency_per_level = next((x['pokemon_upgrades'] for x in POKEMONDATA['responses']['DOWNLOAD_ITEM_TEMPLATES']['item_templates'] if 'pokemon_upgrades' in x),{}).get(currency_type)
-    pokemon_level = min(40,level or get_level_for_pokemon(pokemon))
-    num_upgrades = pokemon.get('powerups',0)
+    pokemon_level = get_level_for_pokemon(pokemon)
+    target_level = min(40, level or pokemon_level)
+    num_upgrades = pokemon.get('powerups',0) + (target_level - pokemon_level) * 2
     totalcost = 0
-    if currency_per_level is not None and pokemon_level > -1 and num_upgrades > 0:
+    if currency_per_level is not None and target_level > -1 and num_upgrades > 0:
         while num_upgrades > 0:
-            pokemon_level -= 0.5
-            totalcost += currency_per_level[max(0,int(pokemon_level-1))]
+            target_level -= 0.5
+            totalcost += currency_per_level[max(0,int(target_level-1))]
             num_upgrades -= 1
     return {currency_type: totalcost}
 
