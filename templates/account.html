@@ -193,7 +193,24 @@
 	};
 	get_selected_pokemon = function() {
 		return $('input#selected_pokemon:checked').map(function() { return $(this).val(); })
-	}
+	};
+	pokemon_row_matches_filter = function(row,textfilter) {
+		name = $(row).children().filter("td#name").text().toLowerCase();
+		dexid = $(row).children().filter("td#pokemon_id").text().toLowerCase();
+		return ~name.indexOf(textfilter.toLowerCase()) || dexid == textfilter
+	};
+	filter_pokemon_table = function(filter) { 
+		rows = $('#poketable tbody tr');
+		if(!filter.trim()) {
+			rows.css('display','');
+		} else {
+			$.each(rows,function(k,row) {
+				display = 'none';
+				if(pokemon_row_matches_filter(row,filter.trim())) { display = ''; }
+				$(row).css('display', display);
+			});
+		}
+	};
 	$(function(){
 		$(document).ajaxStart(function(){
 			$("#wait").css("display", "block");
@@ -220,6 +237,9 @@
 			refreshwholeparty(true);
 			e.preventDefault();
 			return false;
+		});
+		$('input#search').on('change keyup paste',function() {
+			filter_pokemon_table($(this).val());
 		});
 		$('#go_action_on_selected').click(function(e) {
 			action = $('#action_on_selected').find('option:selected').val();
@@ -260,6 +280,7 @@
 		<option value="release">Release</option>
 	</select>
 	<input type="submit" id="go_action_on_selected" name="go_action_on_selected" formaction="batch_action_on_selected" value="go!">
+	<input type="text" id="search"></input>
 	<table id="poketable" class="poketable tablesaw-row-border tablesaw-row-zebra" data-tablesaw-sortable data-tablesaw-mode="columntoggle">
 	<thead id="stickyheader" class="top">
 	<tr>
