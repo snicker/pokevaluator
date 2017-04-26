@@ -14,6 +14,7 @@ import os
 import time
 import csv
 import logging
+from s2sphere import CellId
 app = Flask(__name__)
 #https://github.com/DavydeVries/PoGO-Awesome todo
 #moves data https://docs.google.com/spreadsheets/d/1vLkzORkHuiq5hGrI2Pc3ZQUM_aPKXpB6jUeg6dydNtQ/edit#gid=1493616609
@@ -618,6 +619,13 @@ def incubators(username):
     for incubator in data.getIncubators():
         output = output + "{incubator}<br/><br/>".format(incubator=incubator).replace("\n","<br/>")
     return output
+    
+def get_captured_lat_lng(pokemon):
+    lat, lng = 0,0
+    if pokemon.get('captured_cell_id'):
+        cell = CellId(pokemon.get('captured_cell_id'))
+        lat, lng = cell.to_lat_lng().lat().degrees, cell.to_lat_lng().lng().degrees
+    return {'lat': lat, 'lng': lng}
 
 def pokemon_formatted(pokemon):
     p = {}
@@ -643,6 +651,7 @@ def pokemon_formatted(pokemon):
     p['cpl'] = p['cp'] / p['level'] if p['level'] > 0 else 0
     p['special_types'] = pokemon.special_types
     p['currency_spent_on_pokemon'] = get_currency_spent_on_pokemon(p)
+    p['captured_location'] = get_captured_lat_lng(pokemon)
     return p
     
 def pokemonlist(botdata,party=None):
