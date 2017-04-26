@@ -766,6 +766,17 @@ def get_final_evolution_for_pokemon(pokemon):
     for evolution in next_evolutions:
         evolutions.extend(get_final_evolution_for_pokemon({'pokemon_id': evolution}))
     return evolutions
+    
+def get_candy_cost_for_final_evolution(pokemon):
+    candy_cost = 0
+    next_evolution = pokemon['pokemon_id']
+    while next_evolution is not None:
+        pdata = get_pokemon_data({'pokemon_id': next_evolution})
+        branch = next((branch for branch in pdata.get('evolution_branch',[])),{})
+        next_evolution = branch.get('evolution')
+        candy_cost += branch.get('candy_cost',0)
+    return candy_cost
+        
 
 def get_level_for_pokemon(pokemon):
     levels = {}
