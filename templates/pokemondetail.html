@@ -1,0 +1,60 @@
+<html>
+    <head>
+	<link rel="stylesheet" href="{{ url_for('static', filename='js/tablesaw/tablesaw.css') }}">
+	<link rel="stylesheet" href="{{ url_for('static', filename='fixedsticky.css') }}">
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+	<script src="{{ url_for('static', filename='js/tablesaw/tablesaw.jquery.persistcolumns.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/fixedsticky.js') }}"></script>
+	<style>
+		span.favorite:after
+		{
+			content:url('{{ url_for('static', filename='img/favorite.png') }}');
+		}
+		span.special-party-hat:after
+		{
+			content:url('{{ url_for('static', filename='img/party-hat.png') }}');
+		}
+		span.special-santa-hat:after
+		{
+			content:url('{{ url_for('static', filename='img/santa-hat.png') }}');
+		}
+		div#wait
+		{
+			background: url('{{ url_for('static', filename='img/loading.gif') }}') no-repeat;
+			display: none;
+			width:26px;
+			height:26px;
+			float:right;
+		}
+		.top { top: 0px; }
+		.tablecontainer { width: 100%; margin: 0 auto; }
+		table.poketable th, table.poketable td { line-height: 1 ; }
+		table.poketable { width: 100%; border-collapse: collapse; }
+		a, a:visited, a:active { color: #000; text-decoration: none; }
+		a:hover { color: #222; text-decoration: underline; }
+		#pokemon_image { width: 40%; margin: 0 auto; text-align: center; }
+		#pokemon_data { width: 40%; margin: 0 auto; text-align: center; }
+		#pokemon_data table { width: 100%; }
+		#pokemon_data td.name { text-align: right; }
+		#pokemon_data td.value { text-align: left; }
+	</style>
+	<title>Pokevaluator: {{ accountdata['user'] }} {{ pokemon['name'] }}</title>
+    </head>
+    <body>
+		<div id="pokemon_image">
+		{{ pokemon['name'] + " (" + pokemon['nickname'] + ")" if pokemon['nickname'] else pokemon['name'] }}
+		</div>
+		<div id="pokemon_data">
+			<table>
+				<tbody>
+					{% for key in pokemon %}
+					<tr>
+						<td class="name"> {{ key }} </td>
+						<td class="value"> {{ pokemon[key] }} </td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</body>
+</html>

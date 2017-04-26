@@ -455,6 +455,12 @@ def pokemon_page(accountname,pokemonname,pokemonid):
     pokemon = next((p for p in pokemen if str(p['id']) == str(pokemonid)),None)
     if pokemon is None:
         return redirect('/{}/'.format(accountname))
+    return render_template('pokemondetail.html',
+        accountdata=accountdata,
+        pokemon = pokemon,
+        PDATA=PDATA,
+        BETTERPDATA=BETTERPDATA
+    )
     return jsonify(pokemon)
 
 @app.route("/<accountname>/evolvelist")
