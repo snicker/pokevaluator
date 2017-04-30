@@ -132,7 +132,8 @@ class pgoapiSession(object):
     def favoritePokemon(self, pokemon, is_favorite=True):
         self.api.set_position(0,0)
         request = self.api.create_request()
-        request.set_favorite_pokemon(pokemon_id=pokemon.id,is_favorite=is_favorite)
+        request.set_favorite_pokemon(pokemon_id=pokemon.id if pokemon.id < 2**63 else pokemon.id-2**64, is_favorite=is_favorite)
+        #request.set_favorite_pokemon(pokemon_id=pokemon.id,is_favorite=is_favorite)
         response = request.call()
         return response
         
