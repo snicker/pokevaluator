@@ -665,6 +665,7 @@ def pokemonlist(botdata,party=None):
     pokemen = []
     party = party or botdata.getParty()
     stats = botdata.getStats()
+    stardust = sum([c.get('amount',0) for c in botdata.getPlayerData().get('currencies',[]) if c.get('name') == 'STARDUST'])
     level = 0
     if stats:
         level = stats.level
@@ -674,6 +675,7 @@ def pokemonlist(botdata,party=None):
         p['candies'] = botdata.getCandiesFor(candytypeforpokemon)
         p['max_cp_at_player_level'] = get_cp_for_pokemon(p,level+1.5)
         p['max_cp_at_max_evolution'] = get_cp_for_fully_evolved_pokemon(p,level=level+1.5)
+        p['max_cp_for_current_resources'] = get_max_cp_for_pokemon_for_available_resources(pokemon,candy=p['candies'],stardust=stardust,max_player_level=level)
         p['previous_id'] = pokemon.get('previous_id')
         future_costs = get_currency_spent_on_pokemon(p,level=level+1.5)
         p['currency_cost_to_max_level'] = {
@@ -757,26 +759,66 @@ def get_cp_for_fully_evolved_pokemon(pokemon, level=None):
     results = sorted(results, key=lambda x: x[0],reverse=True)
     return results[0] if len(results) > 0 else (-1,-1)
         
-def get_final_evolution_for_pokemon(pokemon):
+def get_final_evolution_for_pokemon(pokemon,max_evolves=1000):
     pdata = get_pokemon_data(pokemon)
     next_evolutions = [b.get('evolution') for b in pdata.get('evolution_branch',[])]
-    if len(next_evolutions) == 0:
+    max_evolves -= 1
+    if len(next_evolutions) == 0 or max_evolves < 0:
         return [pokemon.get('pokemon_id')]
     evolutions = []
     for evolution in next_evolutions:
-        evolutions.extend(get_final_evolution_for_pokemon({'pokemon_id': evolution}))
+        evolutions.extend(get_final_evolution_for_pokemon({'pokemon_id': evolution},max_evolves=max_evolves))
     return evolutions
+    
+def get_next_evolution_for_pokemon(pokemon):
+    next_evolution = get_final_evolution_for_pokemon(pokemon,max_evolves=1)
+    if pokemon.get('pokemon_id') in next_evolution:
+        return []
+    return next_evolution
     
 def get_candy_cost_for_final_evolution(pokemon):
     candy_cost = 0
-    next_evolution = pokemon['pokemon_id']
-    while next_evolution is not None:
-        pdata = get_pokemon_data({'pokemon_id': next_evolution})
-        branch = next((branch for branch in pdata.get('evolution_branch',[])),{})
-        next_evolution = branch.get('evolution')
-        candy_cost += branch.get('candy_cost',0)
+    next_evolution = [pokemon['pokemon_id']]
+    while len(next_evolution) > 0:
+        candy_cost += get_candy_cost_for_next_evolution({'pokemon_id': next_evolution[0]})
+        next_evolution = get_next_evolution_for_pokemon({'pokemon_id': next_evolution[0]})
     return candy_cost
-        
+ 
+def get_candy_cost_for_next_evolution(pokemon):
+    pdata = get_pokemon_data(pokemon)
+    branch = next((branch for branch in pdata.get('evolution_branch',[])),{})
+    return branch.get('candy_cost',0)
+    
+def get_max_cp_for_pokemon_for_available_resources(pokemon, candy=0, stardust=0, max_player_level = 40):
+    available_candy = candy
+    available_stardust = stardust
+    max_level = max_player_level + 1.5
+    candy_to_evolve_next = get_candy_cost_for_next_evolution(pokemon)
+    next_evolution = get_next_evolution_for_pokemon(pokemon)
+    current_pokemon_level = get_level_for_pokemon(pokemon_formatted(pokemon))
+    chosen_evolution = [pokemon.get('pokemon_id')]
+    while len(next_evolution) > 0 and available_candy >= candy_to_evolve_next:
+        available_candy -= candy_to_evolve_next
+        chosen_evolution = next_evolution
+        candy_to_evolve_next = get_candy_cost_for_next_evolution({'pokemon_id': next_evolution[0]})
+        next_evolution = get_next_evolution_for_pokemon({'pokemon_id': next_evolution[0]})
+    logging.debug('chosen evolution: {} current_plevel: {} available_candy = {} available_stardust = {}'.format(chosen_evolution,current_pokemon_level,available_candy,available_stardust))
+    next_level = current_pokemon_level + 0.5
+    target_level = current_pokemon_level
+    stardust_for_next_level = get_currency_cost_for_level('stardust_cost',next_level)
+    candy_for_next_level = get_currency_cost_for_level('candy_cost',next_level)
+    while next_level <= max_level and available_candy >= candy_for_next_level and available_stardust > stardust_for_next_level:
+        target_level = next_level
+        available_candy -= candy_for_next_level
+        available_stardust -= stardust_for_next_level
+        next_level += 0.5
+        stardust_for_next_level = get_currency_cost_for_level('stardust_cost',next_level)
+        candy_for_next_level = get_currency_cost_for_level('candy_cost',next_level)
+    logging.debug('current_plevel: {} target_plevel: {} available_candy = {} available_stardust = {}'.format(current_pokemon_level, target_level,available_candy,available_stardust))
+    evolved_pokemon = pokemon_formatted(pokemon)
+    evolved_pokemon['pokemon_id'] = chosen_evolution[0]
+    return get_cp_for_pokemon(evolved_pokemon,level=target_level)
+    
 
 def get_level_for_pokemon(pokemon):
     levels = {}
@@ -808,18 +850,22 @@ def get_currency_spent_on_pokemon(pokemon,currency_type = None, level = None):
         out = {}
         map(lambda x: out.update(get_currency_spent_on_pokemon(pokemon, x, level=level)),valid_currency_types)
         return out
-    currency_per_level = next((x['pokemon_upgrades'] for x in POKEMONDATA['responses']['DOWNLOAD_ITEM_TEMPLATES']['item_templates'] if 'pokemon_upgrades' in x),{}).get(currency_type)
     pokemon_level = get_level_for_pokemon(pokemon)
     target_level = min(40, level or pokemon_level)
     num_upgrades = pokemon.get('powerups',0) + (target_level - pokemon_level) * 2
     totalcost = 0
-    if currency_per_level is not None and target_level > -1 and num_upgrades > 0:
+    if target_level > -1 and num_upgrades > 0:
         while num_upgrades > 0:
             target_level -= 0.5
-            totalcost += currency_per_level[max(0,int(target_level-1))]
+            totalcost += get_currency_cost_for_level(currency_type=currency_type,level=target_level) or 0
             num_upgrades -= 1
     return {currency_type: totalcost}
 
+def get_currency_cost_for_level(currency_type = None, level = 0):
+    currency_per_level = next((x['pokemon_upgrades'] for x in POKEMONDATA['responses']['DOWNLOAD_ITEM_TEMPLATES']['item_templates'] if 'pokemon_upgrades' in x),{}).get(currency_type)
+    if currency_per_level is not None:
+        return currency_per_level[min(39,max(0,int(level-1)))]
+    
 def get_move_name(moveid):
     desc = PokemonMove.DESCRIPTOR
     for (k,v) in desc.values_by_name.items():
