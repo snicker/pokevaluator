@@ -415,6 +415,7 @@ def account_v2(accountname):
         ['cp', 'CP', ['data-sortable-numeric']],
         ['max_cp_at_player_level', 'Max CP', ['data-sortable-numeric']],
         ['max_cp_at_max_evolution', 'Max CP (fully evolved)', ['data-sortable-numeric']],
+        ['max_cp_for_current_resources', 'Max CP (avail. candy/dust)', ['data-sortable-numeric']],
         ['attack', 'ATK', ['data-sortable-numeric']],
         ['defense', 'DEF', ['data-sortable-numeric']],
         ['stamina', 'STA', ['data-sortable-numeric']],
