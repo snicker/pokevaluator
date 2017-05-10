@@ -14,6 +14,7 @@ import os
 import time
 import csv
 import logging
+import math
 from s2sphere import CellId
 app = Flask(__name__)
 #https://github.com/DavydeVries/PoGO-Awesome todo
@@ -137,15 +138,22 @@ class pgoapiSession(object):
         response = request.call()
         return response
         
-    def releaseMultiplePokemon(self, pokemen):
+    def releaseMultiplePokemon(self, pokemen, max_batch_release = 25):
         self.api.set_position(0,0)
-        request = self.api.create_request()
-        pokemon_ids = []
-        for pokemon in pokemen:
-            pokemon_ids.append(pokemon.id)
-        request.release_pokemon(pokemon_ids=pokemon_ids)
-        response = request.call()
-        return response
+        batches = []
+        responses = []
+        for idx in xrange(int(math.ceil((0.0+len(pokemen))/max_batch_release))):
+            batches.append(pokemen[idx*max_batch_release:(idx+1)*max_batch_release])
+        for batch in batches:
+            pokemon_ids = []
+            for pokemon in batch:
+                pokemon_ids.append(pokemon.id)
+            request = self.api.create_request()
+            request.release_pokemon(pokemon_ids=pokemon_ids)
+            responses.append(request.call())
+            if len(batches) > 1:
+                time.sleep(0.5)
+        return responses
     
     def checkInventory(self):
         self.invdata = {}
@@ -376,7 +384,7 @@ def rspbke2p(accountname):
     botdata = get_bot_data(accountname)
     session = get_poko_session(accountname)
     if botdata is not None and session is not None:
-        releaseShittyPokemonButKeepEnoughToPowerLevel(session,minperfect=0.85,minalmostperfect=0.8,mincp=1300)
+        releaseShittyPokemonButKeepEnoughToPowerLevel(session,minperfect=0.85,minalmostperfect=0.8,mincp=1000)
         updateBotData(session,botdata)
         return redirect('/{}/'.format(accountname))
     return redirect('/')
