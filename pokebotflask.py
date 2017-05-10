@@ -154,6 +154,9 @@ class pgoapiSession(object):
             if len(batches) > 1:
                 time.sleep(0.5)
         return responses
+        
+    def is_pokemon_buddy(self, pokemon):
+        return pokemon.id == self.player_data.get('buddy_pokemon',{}).get('id',-1)
     
     def checkInventory(self):
         self.invdata = {}
@@ -184,7 +187,9 @@ class pgoapiSession(object):
                 if pokemonData.get('is_egg'):
                     self.invdata["eggs"].append(InventoryItem(pokemonData))
                 else:
-                    self.invdata["party"].append(PokemonItem(pokemonData))
+                    pokemon = PokemonItem(pokemonData)
+                    pokemon['is_buddy'] = self.is_pokemon_buddy(pokemon)
+                    self.invdata["party"].append(pokemon)
                 continue
             incubators = data.get("egg_incubators", None)
             if incubators:
@@ -218,11 +223,13 @@ def getListOfShittyPokemonToReleaseButKeepEnoughToPowerLevel(session,minperfect=
     party = inv['party']
     tokeep = []
     for pokemon in party:
-        if isPokemonGood(session,pokemon,minperfect=minperfect,minalmostperfect=minalmostperfect,mincp=mincp) or len(pokemon.special_types) > 0 or pokemon.get('favorite') == 1:
+        if isPokemonGood(session,pokemon,minperfect=minperfect,minalmostperfect=minalmostperfect,mincp=mincp) or len(pokemon.special_types) > 0 or pokemon.get('favorite') == 1 or pokemon.get('is_buddy'):
             if pokemon.id not in tokeep:
                 logging.debug("{p} is good, adding to list...".format(p=pokemonAsString(pokemon)))
                 if pokemon.get('favorite') == 1:
                     logging.debug("{p} is favorited, adding to list...".format(p=pokemonAsString(pokemon)))
+                if pokemon.get('is_buddy'):
+                    logging.debug("{p} is buddy, adding to list...".format(p=pokemonAsString(pokemon)))
                 if len(pokemon.special_types) > 0:
                     logging.debug("{p} has special types {stypes}, adding to list...".format(p=pokemonAsString(pokemon), stypes=pokemon.special_types))
                 tokeep.append(pokemon.id)
@@ -667,6 +674,7 @@ def pokemon_formatted(pokemon):
     p['special_types'] = pokemon.special_types
     p['currency_spent_on_pokemon'] = get_currency_spent_on_pokemon(p)
     p['captured_location'] = get_captured_lat_lng(pokemon)
+    p['is_buddy'] = pokemon.get('is_buddy')
     return p
     
 def pokemonlist(botdata,party=None):
