@@ -200,12 +200,11 @@ class pgoapiSession(object):
 def pokemonAsString(pokemon):
     return "{id}: {a}/{d}/{s} ({cp})".format(id=pokemon.pokemon_id,a=pokemon.individual_attack,d=pokemon.individual_defense,s=pokemon.individual_stamina,cp=pokemon.cp)        
 
-def releaseShittyPokemonButKeepEnoughToPowerLevel(session,minperfect=0.9,minalmostperfect=0.85,mincp=1600):
-    logging.info("Releasing lousy pokemon but keeping enough to power level...")
+def getListOfShittyPokemonToReleaseButKeepEnoughToPowerLevel(session,minperfect=0.9,minalmostperfect=0.85,mincp=1600):
     inv = session.checkInventory()
     if not inv:
         logging.info("Couldn't get inventory!")
-        return
+        return []
     candies = inv['candies']
     remainingtokeep = {}
     for id in candies:
@@ -243,15 +242,15 @@ def releaseShittyPokemonButKeepEnoughToPowerLevel(session,minperfect=0.9,minalmo
     for pokemon in party:
         if pokemon.id not in tokeep:
             torelease.append(pokemon)
+    return torelease
+
+
+def releaseShittyPokemonButKeepEnoughToPowerLevel(session,minperfect=0.9,minalmostperfect=0.85,mincp=1600):
+    logging.info("Releasing lousy pokemon but keeping enough to power level...")
+    torelease = getListOfShittyPokemonToReleaseButKeepEnoughToPowerLevel(session,minperfect,minalmostperfect,mincp)
     logging.info("releasing {x} pokemon...".format(x=len(torelease)))
     if len(torelease) > 0:
         session.releaseMultiplePokemon(torelease)
-    #for pokemon in torelease:
-    #    logging.info("releasing pokemon {p}...".format(p=pokemonAsString(pokemon)))
-    #    session.releasePokemon(pokemon)
-    #    time.sleep(1)
-        #session.getInventory()
-        #time.sleep(1)
         
 
 def updateBotData(session,botdata):
