@@ -1,0 +1,7 @@
+{
+	"accounts": [
+		{"name": "visible_name", "user": "login_username", "pass": "login_password", "auth": "google"},
+		{"name": "visible_name", "user": "login_username", "pass": "login_password", "auth": "ptc"}
+	],
+	"pokehash": "<pokehash_key>"
+}
