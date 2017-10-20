@@ -780,7 +780,7 @@ def get_cp_for_fully_evolved_pokemon(pokemon, level=None):
         
 def get_final_evolution_for_pokemon(pokemon,max_evolves=1000):
     pdata = get_pokemon_data(pokemon)
-    next_evolutions = [b.get('evolution') for b in pdata.get('evolution_branch',[])]
+    next_evolutions = [b.get('evolution') for b in pdata.get('evolution_branch',[])] if pdata is not None else []
     max_evolves -= 1
     if len(next_evolutions) == 0 or max_evolves < 0:
         return [pokemon.get('pokemon_id')]
@@ -805,7 +805,7 @@ def get_candy_cost_for_final_evolution(pokemon):
  
 def get_candy_cost_for_next_evolution(pokemon):
     pdata = get_pokemon_data(pokemon)
-    branch = next((branch for branch in pdata.get('evolution_branch',[])),{})
+    branch = next((branch for branch in pdata.get('evolution_branch',[])),{}) if pdata is not None else {}
     return branch.get('candy_cost',0)
     
 def get_max_cp_for_pokemon_for_available_resources(pokemon, candy=0, stardust=0, max_player_level = 40):
@@ -897,7 +897,7 @@ def get_pokemon_name(pokemon):
     if pdata is not None:
         template_id = pdata.get('template_id','')
         return template_id[template_id.find('POKEMON_')+8:].title()
-    return 'unknown pkmn ({})'.format(pokemon_id)
+    return 'unknown pkmn ({})'.format(pokemon.get('pokemon_id'))
     
 def pokemonlist_html(botdata):
     output = "<table class='sortable'><tr><th>Pokedex #</th><th>pokemon</th><th>nickname</th><th>candy</th><th>cp</th><th>attack</th><th>def</th><th>stam</th><th>perfect</th><th>date caught</th></tr>"
