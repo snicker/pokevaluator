@@ -73,6 +73,8 @@ class PokemonItem(InventoryItem):
                 stypes.append('santa-hat')
             if catchtime >= datetime(2017,7,6) and catchtime <= datetime(2017,7,24):
                 stypes.append('ash-hat')
+            if catchtime >= datetime(2017,10,20) and catchtime <= datetime(2017,11,3):
+                stypes.append('witch-hat')
         return stypes
 
 class pgoapiSession(object):
