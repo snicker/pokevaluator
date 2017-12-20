@@ -16,6 +16,8 @@ import csv
 import logging
 import math
 from s2sphere import CellId
+import requests
+import re
 app = Flask(__name__)
 #https://github.com/DavydeVries/PoGO-Awesome todo
 #moves data https://docs.google.com/spreadsheets/d/1vLkzORkHuiq5hGrI2Pc3ZQUM_aPKXpB6jUeg6dydNtQ/edit#gid=1493616609
@@ -23,6 +25,60 @@ ACCOUNTS = {}
 POKEHASH = None
 API = None
 ENCRYPT_PATH = '/usr/home/snicker/devel/pyenvs/pokebot/libencrypt.so'
+GAMEMASTER_SRC = 'https://raw.githubusercontent.com/BrunnerLivio/pokemongo-game-master/master/versions/latest/GAME_MASTER.json'
+ENUM_BACKREFS = {}
+POKEMON_TEMPLATE_RE = re.compile('V(\d+)_POKEMON_(.*)')
+MOVE_TEMPLATE_RE = re.compile('V(\d+)_MOVE_(.*)')
+
+from underscore_dict import JSONUnderscoreDecoder
+
+def load_enum_backrefs_from_json(json):
+    enum_backrefs = {}
+    pokemon_exceptions = {29: 'NIDORAN_FEMALE', 32: 'NIDORAN_MALE'}
+    for template_name in list(set([item.get('template_id') for item in json.get('item_templates')])):
+        match = POKEMON_TEMPLATE_RE.match(template_name)
+        if match:
+            typedict = enum_backrefs.get('POKEMON') or {}
+            id = int(match.group(1))
+            name = pokemon_exceptions.get(id) or match.group(2)
+            typedict[name] = id
+            enum_backrefs['POKEMON'] = typedict
+        match = MOVE_TEMPLATE_RE.match(template_name)
+        if match:
+            typedict = enum_backrefs.get('MOVE') or {}
+            typedict[match.group(2)] = int(match.group(1))
+            enum_backrefs['MOVE'] = typedict
+    return enum_backrefs
+    
+def replace_enums_with_backrefs(json, backrefs):
+    for item in json.get('item_templates'):
+        pokemon_settings = item.get('pokemon_settings')
+        if pokemon_settings:
+            pokemon_id = backrefs.get('POKEMON').get(pokemon_settings.get('pokemon_id'))
+            if pokemon_id:
+                pokemon_settings['pokemon_id'] = pokemon_id
+                if 'evolution_ids' in pokemon_settings:
+                    pokemon_settings['evolution_ids'] = [backrefs.get('POKEMON').get(id) for id in pokemon_settings.get('evolution_ids',[])]
+                if 'evolution_branch' in pokemon_settings:
+                    for branch in pokemon_settings.get('evolution_branch'):
+                        branch.update({'evolution': backrefs.get('POKEMON').get(branch.get('evolution'))})
+    return json
+
+def download_gamemaster_json():
+    logging.debug('downloading gamemaster json...')
+    filename = './data/GAME_MASTER.json'
+    r = requests.get(GAMEMASTER_SRC, stream=True)
+    with open(filename, 'wb') as f:
+        for chunk in r.iter_content():
+            f.write(chunk)
+    logging.debug('done downloading gamemaster json.')
+    gamemaster_json = None
+    with open(filename, 'r') as f:
+        gamemaster_json = json.load(f, cls=JSONUnderscoreDecoder)
+    global ENUM_BACKREFS
+    ENUM_BACKREFS = load_enum_backrefs_from_json(gamemaster_json)
+    gamemaster_json = replace_enums_with_backrefs(gamemaster_json, ENUM_BACKREFS)
+    return gamemaster_json
 
 class StaticLocation(object):
     def setLocation(self, search):
@@ -944,6 +1000,9 @@ with open('data/GAME_MASTER_POKEMON_v0_2_reva.tsv') as f:
         BETTERPDATA[int(pokedata['PkMn'])] = pokedata
 from data.pokemongodata import POKEMONDATA
 ITEMDATA = POKEMONDATA.get('responses').get('DOWNLOAD_ITEM_TEMPLATES').get('item_templates')
+gamemaster_json = download_gamemaster_json()
+if gamemaster_json:
+    ITEMDATA = gamemaster_json.get('item_templates')
 BESTPDATA = {p['pokemon_id']: p for p in [dict(template_id=k.get('template_id'),**k['pokemon_settings']) for k in ITEMDATA if 'pokemon_settings' in k.keys()]}
         
 if __name__ == "__main__":
